@@ -1,0 +1,28 @@
+name: Frontend CI
+
+on:
+  push:
+    branches: [main]
+    paths: ['frontend/**', '.github/workflows/ci-frontend.yml']
+  pull_request:
+    branches: [main]
+    paths: ['frontend/**', '.github/workflows/ci-frontend.yml']
+
+jobs:
+  lint-and-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - name: ESLint
+        run: bun run lint
+      - name: Svelte Check (TypeScript)
+        run: bun run check
+      - name: Build
+        run: bun run build

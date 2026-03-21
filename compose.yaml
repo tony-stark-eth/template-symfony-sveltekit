@@ -1,0 +1,102 @@
+# compose.yaml — Base service definitions
+#
+# Usage:
+#   Dev:  docker compose --profile dev up -d          (loads compose.override.yaml automatically)
+#   Prod: docker compose -f compose.yaml -f compose.prod.yaml up -d
+#
+# The "bun" service (Vite dev server) is gated behind the "dev" profile and
+# must be started explicitly with --profile dev.
+
+services:
+  php:
+    build:
+      context: .
+      dockerfile: docker/frankenphp/Dockerfile
+      # Default target is dev; compose.prod.yaml overrides this to frankenphp_prod.
+      target: frankenphp_dev
+    volumes:
+      - ./backend:/app
+    environment:
+      # PHP connects to the database via PgBouncer in Transaction Mode.
+      # The pgbouncer service listens on port 6432.
+      - DATABASE_URL=postgresql://app:!ChangeMe!@pgbouncer:5432/app?serverVersion=17&sslmode=disable&charset=utf8
+      # Messenger transport uses Doctrine (requires async queue table to exist).
+      - MESSENGER_TRANSPORT_DSN=doctrine://default?auto_setup=0
+      # Mercure hub URLs — internal (php → php) and public (browser → localhost).
+      - MERCURE_URL=https://php/.well-known/mercure
+      - MERCURE_PUBLIC_URL=https://localhost/.well-known/mercure
+      - MERCURE_JWT_SECRET=!ChangeThisMercureHubJWTSecretKey!
+    depends_on:
+      database:
+        condition: service_healthy
+
+  database:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: "!ChangeMe!"
+      POSTGRES_DB: app
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      # Creates the app_test database on first startup.
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "app"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    environment:
+      DB_HOST: database
+      DB_PORT: 5432
+      DB_USER: app
+      DB_PASSWORD: "!ChangeMe!"
+      DB_NAME: app
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 100
+      DEFAULT_POOL_SIZE: 20
+      # Required for Transaction Mode + Doctrine:
+      # Doctrine calls SET statements that must be reset between connections.
+      # Without DISCARD ALL, session state leaks across pooled connections.
+      SERVER_RESET_QUERY: "DISCARD ALL"
+      AUTH_TYPE: plain
+    depends_on:
+      database:
+        condition: service_healthy
+
+  messenger-worker:
+    build:
+      context: .
+      dockerfile: docker/frankenphp/Dockerfile
+      # Default target is dev; compose.prod.yaml overrides this to frankenphp_prod.
+      target: frankenphp_dev
+    command: php bin/console messenger:consume async --time-limit=3600
+    volumes:
+      - ./backend:/app
+    environment:
+      # The messenger worker connects DIRECTLY to Postgres on port 5432.
+      # PgBouncer in Transaction Mode does not support LISTEN/NOTIFY, which
+      # Doctrine Messenger relies on to detect new messages in the queue.
+      - DATABASE_URL=postgresql://app:!ChangeMe!@database:5432/app?serverVersion=17&sslmode=disable&charset=utf8
+    depends_on:
+      database:
+        condition: service_healthy
+    restart: unless-stopped
+
+  bun:
+    # Vite dev server — only started in dev via --profile dev.
+    # In production the SvelteKit build output is served statically by Caddy.
+    image: oven/bun:1.3-alpine
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+    command: bun run dev --host 0.0.0.0
+    ports:
+      - "5173:5173"
+    profiles:
+      - dev
+
+volumes:
+  db_data:

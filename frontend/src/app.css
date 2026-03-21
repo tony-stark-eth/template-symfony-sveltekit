@@ -1,0 +1,128 @@
+/*
+ * App-wide CSS custom properties for the light/dark mode design tokens.
+ *
+ * Dark mode is controlled via the `data-theme="dark"` attribute on <html>,
+ * rather than Tailwind's `dark:` class variant. This approach keeps theming
+ * decoupled from Tailwind utility classes and makes the tokens available
+ * anywhere (CSS, inline styles, JS via getComputedStyle).
+ *
+ * Usage in Tailwind utilities: bg-[var(--color-surface)]
+ * Usage in plain CSS:          background: var(--color-surface);
+ */
+
+@import 'tailwindcss';
+
+/* -------------------------------------------------------------------------
+ * Light mode tokens (default)
+ * ---------------------------------------------------------------------- */
+:root {
+    /* Backgrounds */
+    --color-bg:             #ffffff;
+    --color-surface:        #f8f9fa;
+    --color-surface-raised: #ffffff;
+
+    /* Text */
+    --color-text-primary:   #111827;
+    --color-text-secondary: #6b7280;
+    --color-text-muted:     #9ca3af;
+
+    /* Borders */
+    --color-border:         #e5e7eb;
+    --color-border-strong:  #d1d5db;
+
+    /* Brand / accent */
+    --color-accent:         #6366f1;
+    --color-accent-hover:   #4f46e5;
+    --color-accent-text:    #ffffff;
+
+    /* Feedback */
+    --color-success:        #22c55e;
+    --color-warning:        #f59e0b;
+    --color-error:          #ef4444;
+    --color-info:           #3b82f6;
+
+    /* Sizing */
+    --radius-sm:  0.25rem;
+    --radius-md:  0.5rem;
+    --radius-lg:  0.75rem;
+    --radius-xl:  1rem;
+
+    /* Typography */
+    --font-sans: 'Sora', ui-sans-serif, system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', monospace;
+}
+
+/* -------------------------------------------------------------------------
+ * Dark mode tokens
+ * Applied when <html data-theme="dark"> (set by the dark mode toggle).
+ * Also applied when the OS prefers dark and the user has not overridden.
+ * ---------------------------------------------------------------------- */
+[data-theme='dark'] {
+    --color-bg:             #0f1117;
+    --color-surface:        #1a1d27;
+    --color-surface-raised: #23273a;
+
+    --color-text-primary:   #f9fafb;
+    --color-text-secondary: #9ca3af;
+    --color-text-muted:     #6b7280;
+
+    --color-border:         #2d3148;
+    --color-border-strong:  #3d4260;
+
+    --color-accent:         #818cf8;
+    --color-accent-hover:   #6366f1;
+    --color-accent-text:    #0f1117;
+
+    --color-success:        #4ade80;
+    --color-warning:        #fbbf24;
+    --color-error:          #f87171;
+    --color-info:           #60a5fa;
+}
+
+/* Respect OS preference when no manual override is set. */
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+        --color-bg:             #0f1117;
+        --color-surface:        #1a1d27;
+        --color-surface-raised: #23273a;
+
+        --color-text-primary:   #f9fafb;
+        --color-text-secondary: #9ca3af;
+        --color-text-muted:     #6b7280;
+
+        --color-border:         #2d3148;
+        --color-border-strong:  #3d4260;
+
+        --color-accent:         #818cf8;
+        --color-accent-hover:   #6366f1;
+        --color-accent-text:    #0f1117;
+
+        --color-success:        #4ade80;
+        --color-warning:        #fbbf24;
+        --color-error:          #f87171;
+        --color-info:           #60a5fa;
+    }
+}
+
+/* -------------------------------------------------------------------------
+ * Base styles
+ * ---------------------------------------------------------------------- */
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+html {
+    font-family: var(--font-sans);
+    background-color: var(--color-bg);
+    color: var(--color-text-primary);
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+body {
+    margin: 0;
+    min-height: 100dvh;
+}
+
+code, pre, kbd, samp {
+    font-family: var(--font-mono);
+}

@@ -1,0 +1,32 @@
+# compose.override.yaml — Development overrides
+#
+# Loaded automatically by Docker Compose when present alongside compose.yaml.
+# Contains dev-specific ports, bind-mounted source volumes, and debug settings.
+# Do NOT commit secrets — use a local .env file for sensitive overrides.
+
+services:
+  php:
+    ports:
+      - "443:443"       # HTTPS with Caddy automatic TLS
+      - "443:443/udp"   # HTTP/3 (QUIC)
+      - "80:80"         # HTTP — Caddy redirects to HTTPS
+    volumes:
+      - ./backend:/app
+      # Separate named volume for var/ so cache and logs are not overwritten
+      # by the bind-mount, which keeps cache warm across restarts.
+      - php_cache:/app/var
+    environment:
+      - APP_ENV=dev
+      - APP_DEBUG=1
+      # Set XDEBUG_MODE in your shell or .env to enable Xdebug.
+      # Valid values: off | debug | coverage | profile | trace
+      - XDEBUG_MODE=${XDEBUG_MODE:-off}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  php_cache:

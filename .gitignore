@@ -1,0 +1,36 @@
+# ── Backend (Symfony) ───────────────
+backend/vendor/
+backend/var/
+backend/.env.local
+backend/.env.*.local
+backend/config/jwt/*.pem
+backend/.phpunit.result.cache
+backend/.php-cs-fixer.cache
+
+# ── Frontend (SvelteKit) ───────────
+frontend/node_modules/
+frontend/.svelte-kit/
+frontend/build/
+frontend/.env.local
+
+# ── Docker ──────────────────────────
+docker/frankenphp/conf.d/*.local.ini
+
+# ── Infrastructure (OpenTofu) ───────
+infrastructure/.terraform/
+infrastructure/*.tfstate
+infrastructure/*.tfstate.backup
+infrastructure/terraform.tfvars
+infrastructure/crash.log
+
+# ── IDE ─────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ── OS ──────────────────────────────
+.DS_Store
+Thumbs.db

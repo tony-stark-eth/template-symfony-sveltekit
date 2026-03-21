@@ -1,0 +1,45 @@
+# Caddyfile — Same-Origin Architecture
+# API and frontend served under one domain, no CORS required.
+#
+# Dev:  Caddy serves only the API. The Vite dev server runs on port 5173
+#       and proxies API requests to this Caddy instance.
+# Prod: Caddy serves both the API and the SvelteKit static build.
+
+# ─── External (HTTPS) ─────────────────────────────────────────────────────────
+{$SERVER_NAME:localhost} {
+    log
+
+    # API requests → Symfony / FrankenPHP
+    handle /api/* {
+        php_server
+    }
+
+    # Mercure Hub — Server-Sent Events for real-time updates
+    handle /.well-known/mercure {
+        mercure {
+            transport_url {$MERCURE_TRANSPORT_URL:bolt:///data/mercure.db}
+            publisher_jwt {env.MERCURE_JWT_SECRET}
+            subscriber_jwt {env.MERCURE_JWT_SECRET}
+        }
+    }
+
+    # Everything else → SvelteKit static build with SPA fallback
+    # In dev this block is unused (requests go to the Vite dev server instead).
+    # In prod the SvelteKit build output lives at /app/frontend/build.
+    handle {
+        root * /app/frontend/build
+        try_files {path} /index.html
+        file_server
+    }
+}
+
+# ─── Internal HTTP (no TLS) ────────────────────────────────────────────────────
+# Used by Docker service-to-service communication (e.g. Vite proxy inside Docker).
+# Not exposed to the internet — only reachable within the Docker network.
+:8080 {
+    root * /app/public
+
+    handle /api/* {
+        php_server
+    }
+}

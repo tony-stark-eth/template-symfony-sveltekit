@@ -1,0 +1,36 @@
+# compose.prod.yaml — Production overrides
+#
+# Usage:
+#   docker compose -f compose.yaml -f compose.prod.yaml up -d
+#
+# Switches the build target to the rootless frankenphp_prod stage,
+# enables FrankenPHP worker mode, and sets restart policies.
+# The bun dev server is not referenced here — the frontend is served
+# as a static build from /app/frontend/build by Caddy.
+
+services:
+  php:
+    build:
+      # Rootless Debian Slim image with worker mode enabled (~290 MB).
+      target: frankenphp_prod
+    environment:
+      - APP_ENV=prod
+      - APP_DEBUG=0
+      # Worker mode: FrankenPHP boots the Symfony kernel once and reuses it
+      # across requests, eliminating per-request bootstrap overhead.
+      - FRANKENPHP_CONFIG=worker ./public/index.php
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/api/v1/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  messenger-worker:
+    build:
+      # Use the same rootless prod image as the php service.
+      target: frankenphp_prod
+    environment:
+      - APP_ENV=prod
+      - APP_DEBUG=0
+    restart: unless-stopped

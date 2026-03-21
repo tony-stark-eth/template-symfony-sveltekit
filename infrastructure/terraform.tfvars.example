@@ -1,0 +1,17 @@
+# Kopieren nach terraform.tfvars und Werte eintragen.
+# terraform.tfvars ist in .gitignore — KEINE Secrets committen.
+
+project_name = "my-project"
+
+# Hetzner
+# hcloud_token = "..." ← aus ENV: export TF_VAR_hcloud_token=...
+server_type    = "cx31"       # 2 vCPU, 4GB RAM, 40GB — reicht für MVP
+location       = "fsn1"       # Falkenstein (EU, DSGVO)
+ssh_key_ids    = [12345]      # Hetzner Console → SSH Keys
+volume_size_gb = 20           # PostgreSQL Daten
+
+# Cloudflare
+# cloudflare_api_token = "..." ← aus ENV: export TF_VAR_cloudflare_api_token=...
+cloudflare_zone_id = "abc123..."
+domain             = "example.com"
+subdomains         = ["app", "api", "errors"]

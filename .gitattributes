@@ -1,0 +1,30 @@
+# Enforce LF line endings
+* text=auto eol=lf
+
+# PHP — bessere Diffs (zeigt Funktionsnamen in Hunk-Header)
+*.php diff=php
+
+# Frontend
+*.ts text
+*.svelte text
+*.css text
+*.html text
+
+# Lockfiles — nicht manuell editieren
+bun.lock text -diff linguist-generated
+composer.lock text -diff linguist-generated
+
+# Binaries
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+
+# GitHub linguist — Templates/Generated nicht in Sprachstatistik
+docs/** linguist-documentation
+infrastructure/** linguist-vendored
+*.lock linguist-generated

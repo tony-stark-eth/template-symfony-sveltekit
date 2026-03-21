@@ -1,0 +1,71 @@
+name: Feature Request
+description: Suggest an improvement to the template
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before suggesting a new feature, please check that it fits the template's philosophy:
+        generic, opinionated, quality-first. Domain-specific logic and alternative frameworks
+        are out of scope — see CONTRIBUTING.md for details.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: |
+        Describe the problem or gap in the template. What are you trying to do that the
+        template currently makes difficult or impossible?
+      placeholder: As a template user, I find it hard to...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: |
+        Describe the change you'd like to see. Be as specific as possible — which files
+        would change, what would the new behavior look like?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: |
+        Have you considered any alternative approaches? Why is your proposed solution
+        preferable?
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      description: Which part of the template would this change?
+      options:
+        - Docker / Compose
+        - Backend (PHP / Symfony)
+        - Frontend (SvelteKit)
+        - CI / GitHub Actions
+        - Quality Tooling (PHPStan, Rector, ECS, Infection)
+        - Claude Code Integration
+        - Infrastructure (OpenTofu)
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Before submitting
+      options:
+        - label: I have searched existing issues and this is not a duplicate
+          required: true
+        - label: I have read CONTRIBUTING.md and this request fits the template's scope
+          required: true
+        - label: This change would benefit most users of the template, not just my specific project
+          required: true

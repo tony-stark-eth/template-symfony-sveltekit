@@ -1,0 +1,107 @@
+# NOTE: Activate this workflow after Phase 1b, once enough code and tests exist
+# for Claude to use as context. Running it on a near-empty template repo is pointless.
+
+name: Claude Dependency Update
+
+on:
+  schedule:
+    - cron: '0 6 1,15 * *'  # 1st and 15th of each month at 06:00 UTC
+  workflow_dispatch:          # Trigger manually when needed
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  update-dependencies:
+    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: app_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U app"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=5
+    env:
+      DATABASE_URL: postgresql://app:test@localhost:5432/app_test?serverVersion=17&sslmode=disable
+      APP_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: intl, pdo_pgsql, pcov
+          coverage: pcov
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            You are a dependency update agent for a PHP 8.4 + Symfony 8 + SvelteKit project.
+            Read CLAUDE.md and .claude/ for project conventions.
+
+            Perform the following steps:
+
+            ## 1. Backend Updates (backend/)
+            - `cd backend && composer update --no-interaction`
+            - Check whether `composer outdated --direct` still shows outdated packages
+            - Run `vendor/bin/rector process` to migrate code to new API versions
+            - Run `vendor/bin/ecs check --fix` to fix code style
+            - Run `vendor/bin/phpstan analyse` — if errors occur:
+              - Analyse whether they are breaking changes from updated packages
+              - Fix the errors (do NOT use ignoreErrors — fix them in the code)
+              - If PHPStan extension config has changed, update phpstan.neon accordingly
+            - Run `vendor/bin/phpunit` — if tests fail:
+              - Analyse whether it is an API change in updated dependencies
+              - Fix the tests
+
+            ## 2. Frontend Updates (frontend/)
+            - `cd frontend && bun update`
+            - `bun run check` — fix TypeScript errors if needed
+            - `bun run build` — fix build errors if needed
+            - Check for SvelteKit breaking changes (consult the migration guide on major bumps)
+
+            ## 3. Quality Assurance
+            - Ensure ALL of the following checks pass:
+              - `cd backend && vendor/bin/ecs check`
+              - `cd backend && vendor/bin/phpstan analyse`
+              - `cd backend && vendor/bin/rector process --dry-run`
+              - `cd backend && vendor/bin/phpunit`
+              - `cd frontend && bun run check`
+              - `cd frontend && bun run build`
+
+            ## 4. Result
+            - If there are changes: create a branch `chore/dependency-update-YYYY-MM-DD`
+            - Commit all changes with Conventional Commit messages:
+              - `chore(deps): update backend dependencies`
+              - `chore(deps): update frontend dependencies`
+              - `fix: resolve breaking changes from X upgrade` (if applicable)
+            - Create a PR with a summary covering:
+              - Which packages were updated (backend + frontend)
+              - Which breaking changes occurred and how they were resolved
+              - Which Rector transformations were applied
+              - Whether all quality checks are passing
+
+            ## Important Rules
+            - Do NOT add new `@phpstan-ignore` annotations without a clear justification
+            - Do NOT lower quality thresholds (MSI, coverage, cognitive complexity)
+            - If an update cannot be fixed: do NOT apply it, and document the reason in the PR description
+            - Be especially careful with major version bumps of Symfony, SvelteKit, or Doctrine — consult the migration guide
+
+          claude_args: "--max-turns 25 --model sonnet"

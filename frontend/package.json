@@ -1,0 +1,36 @@
+{
+    "name": "frontend",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "dev": "vite dev",
+        "build": "vite build",
+        "preview": "vite preview",
+        "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+        "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+        "lint": "eslint .",
+        "format": "prettier --write .",
+        "test:e2e": "playwright test",
+        "test:e2e:ui": "playwright test --ui"
+    },
+    "devDependencies": {
+        "@eslint/js": "^10.0.1",
+        "@playwright/test": "^1.58.2",
+        "@sveltejs/adapter-static": "latest",
+        "@sveltejs/kit": "^2",
+        "@sveltejs/vite-plugin-svelte": "latest",
+        "@tailwindcss/vite": "latest",
+        "@types/node": "^25.5.0",
+        "eslint": "latest",
+        "eslint-plugin-svelte": "latest",
+        "globals": "^17.4.0",
+        "prettier": "latest",
+        "prettier-plugin-svelte": "latest",
+        "svelte": "^5",
+        "svelte-check": "latest",
+        "tailwindcss": "^4",
+        "typescript": "^5.7",
+        "typescript-eslint": "^8.57.1",
+        "vite": "^6"
+    }
+}

@@ -1,0 +1,29 @@
+{
+    "$schema": "vendor/infection/infection/resources/schema.json",
+    "source": {
+        "directories": ["src"],
+        "excludes": [
+            "Entity",
+            "Kernel.php",
+            "Controller",
+            "Command"
+        ]
+    },
+    "logs": {
+        "text": "var/infection/infection.log",
+        "html": "var/infection/infection.html",
+        "summary": "var/infection/summary.log"
+    },
+    "tmpDir": "var/infection/tmp",
+    "phpUnit": {
+        "configDir": ".",
+        "customPath": "vendor/bin/phpunit"
+    },
+    "testFramework": "phpunit",
+    "testFrameworkOptions": "--testsuite=unit",
+    "mutators": {
+        "@default": true
+    },
+    "minMsi": 80,
+    "minCoveredMsi": 90
+}

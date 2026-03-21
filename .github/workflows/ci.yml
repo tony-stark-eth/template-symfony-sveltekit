@@ -1,0 +1,112 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [main]
+    paths: ['backend/**', '.github/workflows/ci.yml']
+  pull_request:
+    branches: [main]
+    paths: ['backend/**', '.github/workflows/ci.yml']
+
+jobs:
+  # ── Steps 1-3: Parallel (no DB needed) ──────────────────────────
+  ecs:
+    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: intl, pdo_pgsql
+      - uses: actions/cache@v4
+        with:
+          path: backend/vendor
+          key: composer-${{ hashFiles('backend/composer.lock') }}
+      - run: composer install --no-interaction --prefer-dist
+      - name: ECS Check
+        run: vendor/bin/ecs check
+
+  phpstan:
+    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: intl, pdo_pgsql
+      - uses: actions/cache@v4
+        with:
+          path: backend/vendor
+          key: composer-${{ hashFiles('backend/composer.lock') }}
+      - run: composer install --no-interaction --prefer-dist
+      - name: PHPStan
+        run: vendor/bin/phpstan analyse --memory-limit=512M
+
+  rector:
+    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: intl, pdo_pgsql
+      - uses: actions/cache@v4
+        with:
+          path: backend/vendor
+          key: composer-${{ hashFiles('backend/composer.lock') }}
+      - run: composer install --no-interaction --prefer-dist
+      - name: Rector Dry-Run
+        run: vendor/bin/rector process --dry-run
+
+  # ── Steps 4-6: Sequential (requires DB + coverage data) ─────────
+  tests:
+    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
+    needs: [ecs, phpstan, rector]
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: app_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U app"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=5
+    env:
+      DATABASE_URL: postgresql://app:test@localhost:5432/app_test?serverVersion=17&sslmode=disable
+      APP_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: intl, pdo_pgsql, pcov
+          coverage: pcov
+      - uses: actions/cache@v4
+        with:
+          path: backend/vendor
+          key: composer-${{ hashFiles('backend/composer.lock') }}
+      - run: composer install --no-interaction --prefer-dist
+      - run: php bin/console doctrine:migrations:migrate --no-interaction
+
+      - name: PHPUnit (Unit + Integration)
+        run: vendor/bin/phpunit --coverage-clover=var/coverage/clover.xml --coverage-xml=var/coverage/coverage-xml --log-junit=var/coverage/junit.xml
+
+      - name: Infection (Mutation Testing)
+        run: vendor/bin/infection --threads=4 --coverage=var/coverage --skip-initial-tests --min-msi=80 --min-covered-msi=90

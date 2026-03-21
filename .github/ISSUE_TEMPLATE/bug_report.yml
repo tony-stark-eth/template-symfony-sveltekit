@@ -1,0 +1,92 @@
+name: Bug Report
+description: Something isn't working as expected in the template
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to report a bug. Please fill in as much detail as possible
+        so we can reproduce and fix the issue quickly.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear and concise description of the bug.
+      placeholder: Describe what went wrong...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps to reproduce the behavior.
+      value: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What actually happened? Include any error messages or stack traces.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      description: Which part of the template is affected?
+      options:
+        - Docker / Compose
+        - Backend (PHP / Symfony)
+        - Frontend (SvelteKit)
+        - CI / GitHub Actions
+        - Quality Tooling (PHPStan, Rector, ECS, Infection)
+        - Claude Code Integration
+        - Infrastructure (OpenTofu)
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: |
+        Please provide relevant version information.
+      placeholder: |
+        OS: Ubuntu 24.04
+        Docker: 27.x
+        Docker Compose: 2.x
+        PHP: 8.4.x (if running outside Docker)
+        Bun: 1.x
+        Make: 4.x
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Before submitting
+      options:
+        - label: I have searched existing issues and this is not a duplicate
+          required: true
+        - label: I have read CONTRIBUTING.md
+          required: true
+        - label: This is a bug in the template itself, not in an upstream dependency
+          required: true

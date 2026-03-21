@@ -1,0 +1,105 @@
+includes:
+    # PHPStan extensions — listed explicitly for reliability
+    - vendor/phpstan/phpstan-strict-rules/rules.neon
+    - vendor/phpstan/phpstan-deprecation-rules/rules.neon
+    - vendor/phpstan/phpstan-symfony/extension.neon
+    - vendor/phpstan/phpstan-symfony/rules.neon
+    - vendor/phpstan/phpstan-doctrine/extension.neon
+    - vendor/phpstan/phpstan-doctrine/rules.neon
+    - vendor/phpstan/phpstan-phpunit/extension.neon
+    - vendor/phpstan/phpstan-phpunit/rules.neon
+    - vendor/shipmonk/phpstan-rules/rules.neon
+    - vendor/voku/phpstan-rules/rules.neon
+    - vendor/tomasvotruba/cognitive-complexity/config/extension.neon
+    - vendor/tomasvotruba/type-coverage/config/extension.neon
+    - vendor/phpat/phpat/extension.neon
+
+parameters:
+    level: max
+    paths:
+        - src
+        - tests
+    symfony:
+        containerXmlPath: var/cache/dev/App_KernelDevDebugContainer.xml
+    doctrine:
+        objectManagerLoader: tests/object-manager.php
+    ignoreErrors: []
+
+    # ── Bleeding Edge ──────────────────────────────────────────────
+    # Preview of the next major version. Stricter analysis, better
+    # type inference, fewer false positives. Worth it on a greenfield project.
+    treatPhpDocTypesAsCertain: false
+    checkUninitializedProperties: true
+    checkBenevolentUnionTypes: true
+    checkImplicitMixed: true
+    checkTooWideReturnTypesInProtectedAndPublicMethods: true
+    reportPossiblyNonexistentGeneralArrayOffset: true
+    reportPossiblyNonexistentConstantArrayOffset: true
+    reportAnyTypeWideningInVarTag: true
+
+    # ── Cognitive Complexity (tomasvotruba/cognitive-complexity) ───
+    # Measures the mental load when reading — not Cyclomatic Complexity!
+    # Each nesting level and each break in linear flow increases the score.
+    cognitive_complexity:
+        function: 8
+        class: 50
+
+    # ── Type Coverage (tomasvotruba/type-coverage) ─────────────────
+    # Measures what percentage of properties, parameters and returns are typed.
+    type_coverage:
+        return: 100
+        param: 100
+        property: 100
+        constant: 100
+        declare: 100
+
+    # ── ShipMonk Rules (shipmonk/phpstan-rules) ────────────────────
+    # ~40 extra-strict rules. Everything enabled, selectively disabled
+    # where it does not fit our stack or conflicts with other rules.
+    shipmonkRules:
+        # Naming conventions — we enforce these via phpat instead
+        classSuffixNaming:
+            superclassToSuffixMapping!:
+                \Exception: Exception
+                \PHPUnit\Framework\TestCase: Test
+                \Symfony\Component\Console\Command\Command: Command
+
+        # Readonly properties — redundant, we use `final readonly class`
+        enforceReadonlyPublicProperty:
+            enabled: true
+
+        # Enum safety — no default arm in match over enums
+        forbidMatchDefaultArmForEnums:
+            enabled: true
+
+        # Useless nullable returns — when null is never actually returned
+        forbidUselessNullableReturn:
+            enabled: true
+
+        # Forgotten exception throws — exception created but never thrown
+        forbidUnusedException:
+            enabled: true
+
+        # Custom bans — debug functions and mutable DateTime
+        forbidCustomFunctions:
+            list:
+                'var_dump': 'Remove debug code'
+                'dump': 'Remove debug code'
+                'dd': 'Remove debug code'
+                'print_r': 'Remove debug code'
+                'DateTime::__construct': 'Use DateTimeImmutable instead'
+
+    # ── voku/phpstan-rules ─────────────────────────────────────────
+    # Automatically active via extension-installer. Checks:
+    # - Type compatibility for operators (+, -, *, /, .)
+    # - Assignments in conditions (if ($x = foo()) instead of if ($x === foo()))
+    # - Null-safety on method calls
+    # No extra configuration needed — defaults are sensible.
+
+# ── Architecture Tests (phpat/phpat) ──────────────────────────
+# Rules that enforce the domain folder structure and dependency direction.
+services:
+    - class: Tests\Architecture\LayerDependencyTest
+      tags: [phpat.test]
+    - class: Tests\Architecture\NamingConventionTest
+      tags: [phpat.test]

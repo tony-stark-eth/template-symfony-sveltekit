@@ -1,0 +1,41 @@
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    # Skip Dependabot PRs — they are auto-merged
+    if: github.actor != 'dependabot[bot]'
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Review this pull request. Read .claude/ for the coding conventions.
+
+            Check in particular:
+            1. Coding Guidelines: declare(strict_types=1), final readonly class, Value Objects, Early Returns, max 20 lines/method, max 3 parameters
+            2. Missing tests? Every new code path requires a test.
+            3. Naming: verbs for methods, Exception suffix, Enums for status fields
+            4. Domain isolation: no framework imports in domain services
+            5. TypeScript: strict mode, no any, Svelte 5 Runes (not legacy $:)
+            6. i18n: no hardcoded user-facing strings
+            7. Security: no secrets in code, no unsafe input handling
+
+            Post your findings as review comments on the relevant lines.
+            Be constructive — explain why something is problematic and how to improve it.
+            Ignore purely cosmetic issues that ECS/Rector would fix automatically.
+
+          claude_args: "--max-turns 10 --model sonnet"

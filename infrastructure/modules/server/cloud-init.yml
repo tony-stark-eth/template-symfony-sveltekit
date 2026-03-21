@@ -1,0 +1,64 @@
+#cloud-config
+
+# ── Pakete aktualisieren ──────────────────────────────────────────────────────
+package_update: true
+package_upgrade: true
+
+packages:
+  - apt-transport-https
+  - ca-certificates
+  - curl
+  - gnupg
+  - lsb-release
+  - unattended-upgrades
+
+# ── Docker installieren ───────────────────────────────────────────────────────
+runcmd:
+  # Docker GPG key
+  - install -m 0755 -d /etc/apt/keyrings
+  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+  - chmod a+r /etc/apt/keyrings/docker.asc
+
+  # Docker Repository
+  - |
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" > /etc/apt/sources.list.d/docker.list
+
+  # Docker installieren
+  - apt-get update
+  - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+  # Docker starten und aktivieren
+  - systemctl enable docker
+  - systemctl start docker
+
+  # Volume mounten nach /mnt/data (Hetzner automount hängt nach /mnt/HC_Volume_*)
+  # Der Volume wird via Terraform automount=true eingehängt.
+  # Symlink für konsistenten Pfad:
+  - mkdir -p /mnt/data
+  - |
+    VOLUME_DEV=$(blkid -t TYPE=ext4 -o device | grep -v sda | head -1)
+    if [ -n "$VOLUME_DEV" ]; then
+      mount "$VOLUME_DEV" /mnt/data || true
+      echo "$VOLUME_DEV /mnt/data ext4 discard,nofail,defaults 0 0" >> /etc/fstab
+    fi
+
+  # Datenverzeichnisse anlegen
+  - mkdir -p /mnt/data/postgres /mnt/data/backups
+
+  # unattended-upgrades konfigurieren
+  - dpkg-reconfigure -plow unattended-upgrades
+
+# ── unattended-upgrades ───────────────────────────────────────────────────────
+write_files:
+  - path: /etc/apt/apt.conf.d/50unattended-upgrades
+    content: |
+      Unattended-Upgrade::Allowed-Origins {
+        "${distro_id}:${distro_codename}";
+        "${distro_id}:${distro_codename}-security";
+        "${distro_id}ESMApps:${distro_codename}-apps-security";
+        "${distro_id}ESM:${distro_codename}-infra-security";
+      };
+      Unattended-Upgrade::AutoFixInterruptedDpkg "true";
+      Unattended-Upgrade::MinimalSteps "true";
+      Unattended-Upgrade::Remove-Unused-Dependencies "true";
+      Unattended-Upgrade::Automatic-Reboot "false";
