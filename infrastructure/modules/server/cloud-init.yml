@@ -27,13 +27,13 @@ runcmd:
   - apt-get update
   - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
-  # Docker starten und aktivieren
+  # Start and enable Docker
   - systemctl enable docker
   - systemctl start docker
 
-  # Volume mounten nach /mnt/data (Hetzner automount hängt nach /mnt/HC_Volume_*)
-  # Der Volume wird via Terraform automount=true eingehängt.
-  # Symlink für konsistenten Pfad:
+  # Mount volume to /mnt/data (Hetzner automount uses /mnt/HC_Volume_*)
+  # Volume is attached via Terraform automount=true.
+  # Symlink for a consistent path:
   - mkdir -p /mnt/data
   - |
     VOLUME_DEV=$(blkid -t TYPE=ext4 -o device | grep -v sda | head -1)

@@ -6,6 +6,7 @@
 
 services:
   php:
+    tty: true
     ports:
       - "443:443"       # HTTPS with Caddy automatic TLS
       - "443:443/udp"   # HTTP/3 (QUIC)

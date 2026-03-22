@@ -21,8 +21,7 @@ RUN install-php-extensions \
     intl \
     zip \
     opcache \
-    apcu \
-    pcov
+    apcu
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
@@ -48,7 +47,9 @@ ENV APP_ENV=dev
 ENV APP_DEBUG=1
 ENV XDEBUG_MODE=off
 
-# Install Xdebug (activation controlled at runtime via XDEBUG_MODE env var)
+# Install Xdebug — used for step-debugging AND code coverage.
+# PCOV is not an option: FrankenPHP uses ZTS (thread-safe) PHP and PCOV only supports NTS.
+# Coverage is collected via XDEBUG_MODE=coverage (set per-command, default off).
 RUN install-php-extensions xdebug
 
 # Install Supercronic for cron job execution in containers
@@ -120,6 +121,9 @@ RUN { \
     echo 'realpath_cache_size=4096K'; \
     echo 'realpath_cache_ttl=600'; \
     } > /usr/local/etc/php/conf.d/prod-opcache.ini
+
+# Security: remove setuid/setgid bits (reduces attack surface in rootless container)
+RUN find / -perm /6000 -type f -exec chmod a-s {} + 2>/dev/null || true
 
 # Run as non-root (rootless)
 RUN useradd --no-create-home --uid 1001 appuser && \

@@ -23,6 +23,9 @@ shell:                ## Shell into PHP container
 quality:              ## Run all backend checks locally
 	@$(MAKE) ecs-check phpstan rector-check test infection
 
+hooks:                ## Install git hooks (CaptainHook) — run once after cloning
+	cd backend && vendor/bin/captainhook install --force --skip-existing
+
 ecs:                  ## Coding standard (fix)
 	cd backend && vendor/bin/ecs check --fix
 

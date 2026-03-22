@@ -3,110 +3,190 @@ name: Backend CI
 on:
   push:
     branches: [main]
-    paths: ['backend/**', '.github/workflows/ci.yml']
+    paths:
+      - 'backend/**'
+      - 'docker/**'
+      - 'compose*.yaml'
+      - '.github/workflows/ci.yml'
   pull_request:
     branches: [main]
-    paths: ['backend/**', '.github/workflows/ci.yml']
+    paths:
+      - 'backend/**'
+      - 'docker/**'
+      - 'compose*.yaml'
+      - '.github/workflows/ci.yml'
+
+# All jobs run inside the same Docker image as local dev (FrankenPHP).
+# Jobs run in parallel — a failure in one does not block others, so you
+# see ALL issues at once instead of fixing them one by one.
 
 jobs:
-  # ── Steps 1-3: Parallel (no DB needed) ──────────────────────────
+  # ── Static analysis (no DB required) ──────────────────────────────────
   ecs:
+    name: ECS
     runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
-    defaults:
-      run:
-        working-directory: backend
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
         with:
-          php-version: '8.4'
-          extensions: intl, pdo_pgsql
+          context: .
+          file: docker/frankenphp/Dockerfile
+          target: frankenphp_dev
+          load: true
+          tags: app-php:dev
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
       - uses: actions/cache@v4
         with:
-          path: backend/vendor
+          path: ~/.composer/cache
           key: composer-${{ hashFiles('backend/composer.lock') }}
-      - run: composer install --no-interaction --prefer-dist
+          restore-keys: composer-
+      - name: Composer install
+        run: |
+          docker compose run --rm --no-deps --entrypoint composer \
+            -e COMPOSER_CACHE_DIR=/tmp/composer-cache \
+            -v "$HOME/.composer/cache:/tmp/composer-cache" \
+            php install --no-interaction --prefer-dist --no-scripts
       - name: ECS Check
-        run: vendor/bin/ecs check
+        run: docker compose run --rm --no-deps --entrypoint "" php vendor/bin/ecs check
 
   phpstan:
+    name: PHPStan
     runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
-    defaults:
-      run:
-        working-directory: backend
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
         with:
-          php-version: '8.4'
-          extensions: intl, pdo_pgsql
+          context: .
+          file: docker/frankenphp/Dockerfile
+          target: frankenphp_dev
+          load: true
+          tags: app-php:dev
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
       - uses: actions/cache@v4
         with:
-          path: backend/vendor
+          path: ~/.composer/cache
           key: composer-${{ hashFiles('backend/composer.lock') }}
-      - run: composer install --no-interaction --prefer-dist
+          restore-keys: composer-
+      - name: Composer install
+        run: |
+          docker compose run --rm --no-deps --entrypoint composer \
+            -e COMPOSER_CACHE_DIR=/tmp/composer-cache \
+            -v "$HOME/.composer/cache:/tmp/composer-cache" \
+            php install --no-interaction --prefer-dist --no-scripts
+      - name: Warm Symfony cache (generates container XML for PHPStan)
+        run: docker compose run --rm --no-deps --entrypoint "" php php bin/console cache:warmup
       - name: PHPStan
-        run: vendor/bin/phpstan analyse --memory-limit=512M
+        run: docker compose run --rm --no-deps --entrypoint "" php vendor/bin/phpstan analyse --memory-limit=512M
 
   rector:
+    name: Rector
     runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
-    defaults:
-      run:
-        working-directory: backend
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
         with:
-          php-version: '8.4'
-          extensions: intl, pdo_pgsql
+          context: .
+          file: docker/frankenphp/Dockerfile
+          target: frankenphp_dev
+          load: true
+          tags: app-php:dev
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
       - uses: actions/cache@v4
         with:
-          path: backend/vendor
+          path: ~/.composer/cache
           key: composer-${{ hashFiles('backend/composer.lock') }}
-      - run: composer install --no-interaction --prefer-dist
-      - name: Rector Dry-Run
-        run: vendor/bin/rector process --dry-run
+          restore-keys: composer-
+      - name: Composer install
+        run: |
+          docker compose run --rm --no-deps --entrypoint composer \
+            -e COMPOSER_CACHE_DIR=/tmp/composer-cache \
+            -v "$HOME/.composer/cache:/tmp/composer-cache" \
+            php install --no-interaction --prefer-dist --no-scripts
+      - name: Rector dry-run
+        run: docker compose run --rm --no-deps --entrypoint "" php vendor/bin/rector process --dry-run
 
-  # ── Steps 4-6: Sequential (requires DB + coverage data) ─────────
+  # ── Tests (requires DB) ───────────────────────────────────────────────
   tests:
+    name: Tests + Infection
     runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
-    needs: [ecs, phpstan, rector]
-    defaults:
-      run:
-        working-directory: backend
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_USER: app
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB: app_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd="pg_isready -U app"
-          --health-interval=5s
-          --health-timeout=5s
-          --health-retries=5
-    env:
-      DATABASE_URL: postgresql://app:test@localhost:5432/app_test?serverVersion=17&sslmode=disable
-      APP_ENV: test
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
         with:
-          php-version: '8.4'
-          extensions: intl, pdo_pgsql, pcov
-          coverage: pcov
+          context: .
+          file: docker/frankenphp/Dockerfile
+          target: frankenphp_dev
+          load: true
+          tags: app-php:dev
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
       - uses: actions/cache@v4
         with:
-          path: backend/vendor
+          path: ~/.composer/cache
           key: composer-${{ hashFiles('backend/composer.lock') }}
-      - run: composer install --no-interaction --prefer-dist
-      - run: php bin/console doctrine:migrations:migrate --no-interaction
+          restore-keys: composer-
+      - name: Composer install
+        run: |
+          docker compose run --rm --no-deps --entrypoint composer \
+            -e COMPOSER_CACHE_DIR=/tmp/composer-cache \
+            -v "$HOME/.composer/cache:/tmp/composer-cache" \
+            php install --no-interaction --prefer-dist --no-scripts
+      - name: Start services (database + pgbouncer + php)
+        run: docker compose up -d --no-build database pgbouncer php
+      - name: Wait for PostgreSQL
+        run: |
+          for i in $(seq 1 30); do
+            docker compose exec -T database pg_isready -U app && break
+            sleep 2
+          done
 
+      # Tests bypass PgBouncer — transaction mode only proxies `app`, not `app_test`.
+      # phpunit.xml.dist enforces DATABASE_URL=database:5432/app via force="true".
+      - name: Migrate test database
+        run: |
+          docker compose exec -T \
+            -e APP_ENV=test \
+            -e DATABASE_URL="postgresql://app:!ChangeMe!@database:5432/app?serverVersion=17&sslmode=disable" \
+            php php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
+
+      # XDEBUG_MODE=coverage: PCOV is not available (FrankenPHP uses ZTS PHP).
       - name: PHPUnit (Unit + Integration)
-        run: vendor/bin/phpunit --coverage-clover=var/coverage/clover.xml --coverage-xml=var/coverage/coverage-xml --log-junit=var/coverage/junit.xml
+        run: |
+          docker compose exec -T \
+            -e APP_ENV=test \
+            -e XDEBUG_MODE=coverage \
+            php vendor/bin/phpunit \
+              --coverage-clover=var/coverage/clover.xml \
+              --coverage-xml=var/coverage/coverage-xml \
+              --log-junit=var/coverage/junit.xml
 
-      - name: Infection (Mutation Testing)
-        run: vendor/bin/infection --threads=4 --coverage=var/coverage --skip-initial-tests --min-msi=80 --min-covered-msi=90
+      - name: Infection (mutation testing)
+        run: |
+          set +e
+          OUTPUT=$(docker compose exec -T \
+            -e APP_ENV=test \
+            -e XDEBUG_MODE=coverage \
+            php vendor/bin/infection \
+              --threads=4 --coverage=var/coverage \
+              --skip-initial-tests --min-msi=80 --min-covered-msi=90 \
+              --ignore-msi-with-no-mutations 2>&1)
+          EC=$?
+          echo "$OUTPUT"
+          if [ $EC -ne 0 ]; then
+            if echo "$OUTPUT" | grep -q "No source file found"; then
+              echo "::notice::No mutable source files — Infection skipped (expected for fresh template)"
+              exit 0
+            fi
+            exit $EC
+          fi

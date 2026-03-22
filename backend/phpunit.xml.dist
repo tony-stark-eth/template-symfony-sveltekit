@@ -9,7 +9,7 @@
     beStrictAboutTestsThatDoNotTestAnything="true"
     executionOrder="random"
 >
-    <coverage pathCoverage="true">
+    <source>
         <include>
             <directory suffix=".php">src</directory>
         </include>
@@ -17,11 +17,7 @@
             <directory>src/Entity</directory>
             <file>src/Kernel.php</file>
         </exclude>
-        <report>
-            <html outputDirectory="var/coverage"/>
-            <clover outputFile="var/coverage/clover.xml"/>
-        </report>
-    </coverage>
+    </source>
 
     <testsuites>
         <testsuite name="unit">
@@ -38,6 +34,7 @@
         <env name="APP_ENV" value="test" force="true"/>
         <env name="KERNEL_CLASS" value="App\Kernel"/>
         <env name="DATABASE_URL" value="postgresql://app:!ChangeMe!@database:5432/app?serverVersion=17&amp;sslmode=disable&amp;charset=utf8" force="true"/>
+        <!-- Default off; set XDEBUG_MODE=coverage in env to collect coverage -->
         <env name="XDEBUG_MODE" value="off"/>
     </php>
 </phpunit>
