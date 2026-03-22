@@ -22,7 +22,7 @@ services:
       # The pgbouncer service listens on port 6432.
       - DATABASE_URL=postgresql://app:!ChangeMe!@pgbouncer:5432/app?serverVersion=17&sslmode=disable&charset=utf8
       # Messenger transport uses Doctrine (requires async queue table to exist).
-      - MESSENGER_TRANSPORT_DSN=doctrine://default?auto_setup=0
+      - MESSENGER_TRANSPORT_DSN=doctrine://default?auto_setup=true
       # Mercure hub URLs — internal (php → php) and public (browser → localhost).
       - MERCURE_URL=https://php/.well-known/mercure
       - MERCURE_PUBLIC_URL=https://localhost/.well-known/mercure

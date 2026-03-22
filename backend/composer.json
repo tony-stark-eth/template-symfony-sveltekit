@@ -14,6 +14,7 @@
         "symfony/framework-bundle": "^8.0",
         "symfony/mailer": "^8.0",
         "symfony/mercure-bundle": "^0.3",
+        "symfony/doctrine-messenger": "^8.0",
         "symfony/messenger": "^8.0",
         "symfony/monolog-bundle": "^3.0",
         "symfony/rate-limiter": "^8.0",

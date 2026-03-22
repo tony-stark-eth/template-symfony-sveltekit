@@ -22,9 +22,19 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost/api/v1/health"]
-      interval: 30s
+      interval: 10s
       timeout: 5s
       retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   messenger-worker:
     build:
