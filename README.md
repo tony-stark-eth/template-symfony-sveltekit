@@ -2,6 +2,7 @@
 
 [![Backend CI](https://github.com/tony-stark-eth/template-symfony-sveltekit/actions/workflows/ci.yml/badge.svg)](https://github.com/tony-stark-eth/template-symfony-sveltekit/actions/workflows/ci.yml)
 [![Frontend CI](https://github.com/tony-stark-eth/template-symfony-sveltekit/actions/workflows/ci-frontend.yml/badge.svg)](https://github.com/tony-stark-eth/template-symfony-sveltekit/actions/workflows/ci-frontend.yml)
+[![E2E Tests](https://github.com/tony-stark-eth/template-symfony-sveltekit/actions/workflows/ci-e2e.yml/badge.svg)](https://github.com/tony-stark-eth/template-symfony-sveltekit/actions/workflows/ci-e2e.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![PHPStan Level max](https://img.shields.io/badge/PHPStan-level%20max-brightgreen.svg)](https://phpstan.org/)
 
@@ -16,7 +17,7 @@ Production-ready quality tooling from commit zero.
 | **Frontend** | SvelteKit 2, Svelte 5, Bun, TypeScript strict, Tailwind 4 |
 | **Database** | PostgreSQL 17, PgBouncer (Transaction Mode) |
 | **Quality** | 10 PHPStan extensions, Rector, ECS, PHPUnit 13, Infection |
-| **CI/CD** | GitHub Actions (backend + frontend), Dependabot auto-merge |
+| **CI/CD** | GitHub Actions (backend + frontend + E2E + deploy), Dependabot auto-merge |
 | **AI** | Claude Code integration via `CLAUDE.md` + `.claude/` guidelines |
 | **Infrastructure** | OpenTofu modules for Hetzner deployment |
 
@@ -99,11 +100,23 @@ Run `make help` for a full list. Most commonly used:
 |---|---|---|
 | `ci.yml` | Every push / PR | ECS → PHPStan → Rector → PHPUnit → Infection |
 | `ci-frontend.yml` | Every push / PR | ESLint → Svelte Check → Build |
+| `ci-e2e.yml` | Every push / PR | Playwright E2E tests |
+| `cd.yml` | Push to main (app code) | CI Gate → Build & Push to GHCR → Deploy via SSH |
 | `claude-update.yml` | Biweekly | Dependency updates via Claude Code with breaking-change resolution |
 | `claude-review.yml` | Every PR | Automatic code review posted as PR comment |
 
 Default: GitHub-hosted runners. For self-hosted runners: set the repository variable
 `RUNNER_LABEL` to your runner label.
+
+## Deployment
+
+One-command deployment to Hetzner Cloud:
+
+```bash
+./scripts/first-deploy.sh <domain> <project-name> [github-repo]
+```
+
+This provisions a CX23 VPS, installs Docker, builds the app, sets up GlitchTip error tracking, and configures GitHub Actions CD. See `docs/deployment.md` for manual steps and troubleshooting.
 
 ## Claude Code
 
