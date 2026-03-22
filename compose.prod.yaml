@@ -3,29 +3,35 @@
 # Usage:
 #   docker compose -f compose.yaml -f compose.prod.yaml up -d
 #
-# Switches the build target to the rootless frankenphp_prod stage,
-# enables FrankenPHP worker mode, and sets restart policies.
-# The bun dev server is not referenced here — the frontend is served
-# as a static build from /app/frontend/build by Caddy.
+# Requires .env.local with: DATABASE_URL, APP_SECRET, MERCURE_JWT_SECRET,
+# JWT_PASSPHRASE, SENTRY_DSN, SERVER_NAME, POSTGRES_PASSWORD, etc.
 
 services:
   php:
+    image: app-php:prod
     build:
-      # Rootless Debian Slim image with worker mode enabled (~290 MB).
       target: frankenphp_prod
+    env_file:
+      - .env.local
     environment:
       - APP_ENV=prod
       - APP_DEBUG=0
-      # Worker mode: FrankenPHP boots the Symfony kernel once and reuses it
-      # across requests, eliminating per-request bootstrap overhead.
       - FRANKENPHP_CONFIG=worker ./public/index.php
     restart: unless-stopped
+    # Override dev bind mounts, use only Caddy TLS/config volumes
+    volumes: !override
+      - caddy_data:/data
+      - caddy_config:/config
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/api/v1/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/v1/health"]
       interval: 10s
       timeout: 5s
       retries: 3
       start_period: 60s
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"  # HTTP/3
     deploy:
       resources:
         limits:
@@ -36,11 +42,29 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  database:
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-!ChangeMe!}
+    volumes:
+      - /mnt/data/postgres:/var/lib/postgresql/data
+
+  pgbouncer:
+    environment:
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-!ChangeMe!}
+
   messenger-worker:
+    image: app-php:prod
     build:
-      # Use the same rootless prod image as the php service.
       target: frankenphp_prod
+    env_file:
+      - .env.local
+    # Override dev bind mounts — prod uses image-baked code
+    volumes: !override []
     environment:
       - APP_ENV=prod
       - APP_DEBUG=0
     restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

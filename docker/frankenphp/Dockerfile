@@ -73,9 +73,20 @@ RUN curl -sS https://get.symfony.com/cli/installer | bash && \
     mv /root/.symfony5/bin/symfony /usr/local/bin/symfony
 
 # ============================================================
+# Stage: frontend_build
+# Build SvelteKit SPA (adapter-static → /app/build)
+# ============================================================
+FROM oven/bun:1.3-alpine AS frontend_build
+
+WORKDIR /app
+COPY frontend/package.json frontend/bun.lock* ./
+RUN bun install --frozen-lockfile
+COPY frontend/ .
+RUN bun run build
+
+# ============================================================
 # Stage: frankenphp_prod
-# Production stage: rootless, Debian Slim, worker mode
-# Target image size: ~290 MB
+# Production stage: rootless, worker mode
 # ============================================================
 FROM dunglas/frankenphp:php8.4 AS frankenphp_prod
 
@@ -93,11 +104,16 @@ RUN install-php-extensions \
 # Install Composer (needed to install dependencies)
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Copy Caddyfile
+# Copy Caddyfile and entrypoint
 COPY docker/frankenphp/Caddyfile /etc/caddy/Caddyfile
+COPY docker/frankenphp/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Copy application source
 COPY backend/ .
+
+# Copy frontend static build (Caddy serves from /app/frontend/build)
+COPY --from=frontend_build /app/build /app/frontend/build
 
 # Install production dependencies only (no dev packages)
 RUN composer install --no-dev --optimize-autoloader --no-scripts && \
@@ -116,8 +132,7 @@ RUN { \
     echo 'opcache.max_accelerated_files=20000'; \
     echo 'opcache.validate_timestamps=0'; \
     echo 'opcache.save_comments=1'; \
-    echo 'opcache.preload=/app/var/cache/prod/srcApp_KernelProdContainer.preload.php'; \
-    echo 'opcache.preload_user=www-data'; \
+    echo '; opcache.preload disabled — FrankenPHP worker mode handles class caching'; \
     echo 'realpath_cache_size=4096K'; \
     echo 'realpath_cache_ttl=600'; \
     } > /usr/local/etc/php/conf.d/prod-opcache.ini
@@ -134,3 +149,6 @@ ENV APP_ENV=prod
 ENV APP_DEBUG=0
 # Worker mode: FrankenPHP keeps the PHP process alive between requests
 ENV FRANKENPHP_CONFIG="worker ./public/index.php"
+
+ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["frankenphp", "run", "--config", "/etc/caddy/Caddyfile"]

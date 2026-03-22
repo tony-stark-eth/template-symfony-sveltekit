@@ -4,7 +4,7 @@ variable "project_name" {
 }
 
 variable "server_type" {
-  description = "Hetzner Server-Typ (z.B. cx31, cx41, cx51)"
+  description = "Hetzner Server-Typ (z.B. cx23, cx33, cx43)"
   type        = string
 }
 

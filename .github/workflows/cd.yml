@@ -1,0 +1,101 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+# Only one deployment at a time — never cancel in progress to avoid partial deploys
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+permissions:
+  checks: read
+  contents: read
+  packages: write
+
+jobs:
+  # ── Gate: wait for all CI checks to pass ─────────────────────────────────
+  ci-check:
+    name: CI Gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for CI
+        uses: lewagon/wait-on-check-action@v1.3.4
+        with:
+          ref: ${{ github.sha }}
+          check-regexp: '^(Backend|Frontend|Playwright)'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 10
+
+  # ── Build production image and push to GHCR ──────────────────────────────
+  build-and-push:
+    name: Build & Push Image
+    needs: ci-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push production image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/frankenphp/Dockerfile
+          target: frankenphp_prod
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/app:latest
+            ghcr.io/${{ github.repository }}/app:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ── Deploy to production via SSH ─────────────────────────────────────────
+  deploy:
+    name: Deploy to Production
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          DEPLOY_SHA: ${{ github.sha }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          envs: GITHUB_TOKEN,GITHUB_ACTOR,GITHUB_REPOSITORY,DEPLOY_SHA
+          script: |
+            set -e
+            cd /opt/app
+
+            # Pull latest compose files and config
+            git fetch origin main
+            git reset --hard origin/main
+
+            # Login to GHCR and pull new image
+            echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+            docker pull "ghcr.io/${GITHUB_REPOSITORY}/app:${DEPLOY_SHA}"
+            docker tag "ghcr.io/${GITHUB_REPOSITORY}/app:${DEPLOY_SHA}" app-php:prod
+
+            # Restart — entrypoint handles DB wait + migrations automatically.
+            # Docker health check (start_period: 60s) ensures the container is
+            # serving before Compose considers it healthy.
+            docker compose -f compose.yaml -f compose.prod.yaml up -d --no-build --wait --wait-timeout 120
+
+            echo "Deployment complete: ${DEPLOY_SHA}"
+
+      - name: Notify on failure
+        if: failure()
+        run: echo "::error::Deployment failed for ${{ github.sha }}"

@@ -43,3 +43,13 @@ module "dns" {
   server_ipv6 = module.server.ipv6_address
   subdomains  = var.subdomains
 }
+
+output "server_ipv4" {
+  description = "Point your domain A record to this IP"
+  value       = module.server.ipv4_address
+}
+
+output "server_ipv6" {
+  description = "Point your domain AAAA record to this IP"
+  value       = module.server.ipv6_address
+}

@@ -17,7 +17,9 @@
     # Mercure Hub — Server-Sent Events for real-time updates
     handle /.well-known/mercure {
         mercure {
-            transport_url {$MERCURE_TRANSPORT_URL:bolt:///data/mercure.db}
+            transport bolt {
+                path {$MERCURE_DB_PATH:/tmp/mercure.db}
+            }
             publisher_jwt {env.MERCURE_JWT_SECRET}
             subscriber_jwt {env.MERCURE_JWT_SECRET}
         }
