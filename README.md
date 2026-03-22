@@ -22,28 +22,26 @@ Production-ready quality tooling from commit zero.
 
 ## Quick Start
 
-> **Prerequisites**: Docker, Bun, Make
+> **Prerequisites**: Docker (only dependency — everything else runs in containers)
 
 ```bash
 # 1. Use this template (green button above) or clone via gh
 gh repo create my-project --template tony-stark-eth/template-symfony-sveltekit --private
 
-# 2. Start containers
+# 2. Start containers (composer install runs automatically via docker-entrypoint.sh)
 docker compose --profile dev up -d
 
-# 3. Install dependencies
-cd backend && composer install && cd ..
-cd frontend && bun install && cd ..
-
-# 4. Run all quality checks
-make quality
+# 3. Run all quality checks (inside the PHP container)
+docker compose exec php vendor/bin/ecs check
+docker compose exec php vendor/bin/phpstan analyse
+docker compose exec php vendor/bin/phpunit
 ```
 
 ## After Forking — Checklist
 
 - [ ] Update `composer.json` name and description
 - [ ] Update `package.json` name
-- [ ] Generate JWT keys: `php bin/console lexik:jwt:generate-keypair`
+- [ ] Generate JWT keys: `docker compose exec php php bin/console lexik:jwt:generate-keypair`
 - [ ] Copy `.env.example` to `.env.local` and fill in real secrets
 - [ ] Add `ANTHROPIC_API_KEY` as a GitHub repository secret (required for Claude workflows)
 - [ ] Create domain folders under `backend/src/` (e.g. `src/User/`, `src/Product/`)

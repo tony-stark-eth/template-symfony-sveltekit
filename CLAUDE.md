@@ -3,10 +3,10 @@
 ## Quick Start
 
 ```
-docker compose --profile dev up -d
-cd backend && composer install
-cd frontend && bun install
-make quality
+docker compose --profile dev up -d    # composer install runs automatically via entrypoint
+docker compose exec php vendor/bin/ecs check
+docker compose exec php vendor/bin/phpstan analyse
+docker compose exec php vendor/bin/phpunit
 ```
 
 ## Project
