@@ -17,6 +17,10 @@ services:
       - APP_ENV=prod
       - APP_DEBUG=0
       - FRANKENPHP_CONFIG=worker ./public/index.php
+      # Override dev DATABASE_URL from compose.yaml (env_file loses to compose environment)
+      - DATABASE_URL=postgresql://app:${POSTGRES_PASSWORD:-!ChangeMe!}@pgbouncer:5432/app?serverVersion=17&sslmode=disable&charset=utf8
+      - MERCURE_URL=https://php/.well-known/mercure
+      - MERCURE_PUBLIC_URL=/.well-known/mercure
     restart: unless-stopped
     # Override dev bind mounts, use only Caddy TLS/config volumes
     volumes: !override
@@ -63,6 +67,8 @@ services:
     environment:
       - APP_ENV=prod
       - APP_DEBUG=0
+      # Messenger worker connects directly to Postgres (LISTEN/NOTIFY)
+      - DATABASE_URL=postgresql://app:${POSTGRES_PASSWORD:-!ChangeMe!}@database:5432/app?serverVersion=17&sslmode=disable&charset=utf8
     restart: unless-stopped
 
 volumes:
