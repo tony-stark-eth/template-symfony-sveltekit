@@ -20,7 +20,8 @@
         "customPath": "vendor/bin/phpunit"
     },
     "testFramework": "phpunit",
-    "testFrameworkOptions": "--testsuite=unit",
+    "testFrameworkOptions": "--testsuite=unit --path-coverage",
+    "initialTestsPhpOptions": "-d memory_limit=512M",
     "mutators": {
         "@default": true
     },
