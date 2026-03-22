@@ -50,11 +50,26 @@ return static function (ContainerConfigurator $container): void {
         $container->extension('monolog', [
             'handlers' => [
                 'main' => [
+                    'type' => 'fingers_crossed',
+                    'action_level' => 'error',
+                    'handler' => 'grouped',
+                    'excluded_http_codes' => [404, 405],
+                    'channels' => ['!event'],
+                ],
+                'grouped' => [
+                    'type' => 'group',
+                    'members' => ['sentry', 'stderr'],
+                ],
+                'sentry' => [
+                    'type' => 'sentry',
+                    'level' => 'error',
+                    'hub_id' => 'Sentry\State\HubInterface',
+                ],
+                'stderr' => [
                     'type' => 'stream',
                     'path' => 'php://stderr',
                     'level' => 'info',
                     'formatter' => 'monolog.formatter.json',
-                    'channels' => ['!event'],
                 ],
                 'deprecation' => [
                     'type' => 'stream',
