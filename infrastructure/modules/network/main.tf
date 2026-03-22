@@ -36,4 +36,12 @@ resource "hcloud_firewall" "app" {
     port       = "443"
     source_ips = ["0.0.0.0/0", "::/0"]
   }
+
+  # GlitchTip (error tracking UI)
+  rule {
+    direction  = "in"
+    protocol   = "tcp"
+    port       = "8000"
+    source_ips = ["0.0.0.0/0", "::/0"]
+  }
 }
