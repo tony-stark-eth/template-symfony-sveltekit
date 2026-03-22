@@ -8,7 +8,6 @@ on:
       - 'frontend/**'
       - 'docker/**'
       - 'compose*.yaml'
-      - '.github/workflows/cd.yml'
   workflow_dispatch:
 
 # Only one deployment at a time — never cancel in progress to avoid partial deploys
