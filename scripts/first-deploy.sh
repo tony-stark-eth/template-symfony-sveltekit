@@ -230,18 +230,22 @@ user.set_password('${ADMIN_PASSWORD}')
 user.save()
 \""
 
-# Create org + projects + get DSNs
+# Create org + team + projects + get DSNs
 echo "Creating GlitchTip organization and projects..."
 SENTRY_DSN=$(ssh "root@${SERVER_IP}" "cd ${DEPLOY_DIR} && docker compose -f compose.glitchtip.yaml exec -T glitchtip ./manage.py shell -c \"
 from apps.organizations_ext.models import Organization, OrganizationUser
 from apps.projects.models import Project, ProjectKey
+from apps.teams.models import Team
 from apps.users.models import User
 
 user = User.objects.get(email='${ADMIN_EMAIL}')
 org = Organization.objects.create(name='${PROJECT_NAME}', slug='${PROJECT_NAME}')
-OrganizationUser.objects.create(organization=org, user=user, role=0)
+ou = OrganizationUser.objects.create(organization=org, user=user, role=0)
+team = Team.objects.create(slug='default', organization=org)
+team.members.add(ou)
 
 project = Project.objects.create(name='API', slug='api', organization=org, platform='php-symfony')
+project.teams.add(team)
 key = ProjectKey.objects.filter(project=project).first() or ProjectKey.objects.create(project=project)
 print(key.get_dsn())
 \"" 2>/dev/null | tail -1)
@@ -249,9 +253,12 @@ print(key.get_dsn())
 FRONTEND_DSN=$(ssh "root@${SERVER_IP}" "cd ${DEPLOY_DIR} && docker compose -f compose.glitchtip.yaml exec -T glitchtip ./manage.py shell -c \"
 from apps.organizations_ext.models import Organization
 from apps.projects.models import Project, ProjectKey
+from apps.teams.models import Team
 
 org = Organization.objects.get(slug='${PROJECT_NAME}')
+team = Team.objects.get(organization=org)
 project = Project.objects.create(name='Frontend', slug='frontend', organization=org, platform='javascript-svelte')
+project.teams.add(team)
 key = ProjectKey.objects.filter(project=project).first() or ProjectKey.objects.create(project=project)
 print(key.get_dsn())
 \"" 2>/dev/null | tail -1)
@@ -259,11 +266,32 @@ print(key.get_dsn())
 echo "Backend DSN:  $SENTRY_DSN"
 echo "Frontend DSN: $FRONTEND_DSN"
 
-# ── Step 9: Wire SENTRY_DSN ─────────────────────────────────────────────────
+# ── Step 9: Wire SENTRY_DSN + rebuild with frontend DSN ─────────────────────
 echo ""
 echo "=== Step 9: Configure error tracking ==="
 ssh "root@${SERVER_IP}" "sed -i 's|^SENTRY_DSN=.*|SENTRY_DSN=${SENTRY_DSN}|' ${DEPLOY_DIR}/.env.local"
-ssh "root@${SERVER_IP}" "cd ${DEPLOY_DIR} && docker compose -f compose.yaml -f compose.prod.yaml restart php messenger-worker"
+
+# Rebuild image with frontend Sentry DSN baked into the JS bundle
+echo "Rebuilding with frontend Sentry DSN..."
+ssh "root@${SERVER_IP}" "cd ${DEPLOY_DIR} && docker compose -f compose.yaml -f compose.prod.yaml build --no-cache --build-arg 'VITE_SENTRY_DSN=${FRONTEND_DSN}' php"
+ssh "root@${SERVER_IP}" "cd ${DEPLOY_DIR} && docker compose -f compose.yaml -f compose.prod.yaml up -d --force-recreate php messenger-worker"
+
+# Fix Caddy permissions again after recreate
+sleep 10
+ssh "root@${SERVER_IP}" "docker exec -u root ${PROJECT_NAME}-php-1 sh -c 'mkdir -p /data/caddy /config/caddy && chown -R 1001:1001 /data /config' 2>/dev/null || true"
+ssh "root@${SERVER_IP}" "cd ${DEPLOY_DIR} && docker compose -f compose.yaml -f compose.prod.yaml restart php"
+
+# Wait for health
+echo "Waiting for health check..."
+for i in $(seq 1 12); do
+    sleep 10
+    if ssh "root@${SERVER_IP}" "docker exec ${PROJECT_NAME}-php-1 curl -sf http://localhost:8080/api/v1/health" 2>/dev/null; then
+        echo ""
+        echo "App is healthy with error tracking!"
+        break
+    fi
+    echo "  waiting... ($i/12)"
+done
 
 # ── Step 10: GitHub secrets ──────────────────────────────────────────────────
 echo ""
