@@ -20,9 +20,8 @@ services:
       EMAIL_URL: ${EMAIL_URL:-consolemail://}
       GLITCHTIP_DOMAIN: ${GLITCHTIP_DOMAIN:-http://localhost:8000}
       DEFAULT_FROM_EMAIL: ${GLITCHTIP_FROM_EMAIL:-noreply@example.com}
-      CELERY_WORKER_AUTOSCALE: "1,3"
+      REDIS_URL: redis://glitchtip-redis:6379/0
       ENABLE_OBSERVABILITY_API: "true"
-      CACHE_URL: redis://glitchtip-redis:6379/0
     ports:
       - "8000:8000"
     depends_on:
@@ -43,13 +42,13 @@ services:
 
   glitchtip-worker:
     image: glitchtip/glitchtip:latest
-    command: ./bin/run-celery-with-beat.sh
+    command: ./bin/run-worker.sh
     environment:
       DATABASE_URL: postgresql://glitchtip:${GLITCHTIP_DB_PASSWORD:-glitchtip}@glitchtip-db:5432/glitchtip
       SECRET_KEY: ${GLITCHTIP_SECRET_KEY:-change-me-in-production}
       EMAIL_URL: ${EMAIL_URL:-consolemail://}
       GLITCHTIP_DOMAIN: ${GLITCHTIP_DOMAIN:-http://localhost:8000}
-      CACHE_URL: redis://glitchtip-redis:6379/0
+      REDIS_URL: redis://glitchtip-redis:6379/0
     depends_on:
       glitchtip-db:
         condition: service_healthy
