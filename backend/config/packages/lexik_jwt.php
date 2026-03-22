@@ -6,8 +6,8 @@ use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigura
 
 return static function (ContainerConfigurator $container): void {
     $container->extension('lexik_jwt_authentication', [
-        'secret_key' => '%env(JWT_SECRET_KEY)%',
-        'public_key' => '%env(JWT_PUBLIC_KEY)%',
+        'secret_key' => '%kernel.project_dir%/config/jwt/private.pem',
+        'public_key' => '%kernel.project_dir%/config/jwt/public.pem',
         'pass_phrase' => '%env(JWT_PASSPHRASE)%',
         'token_ttl' => '%env(int:JWT_TOKEN_TTL)%',
     ]);
