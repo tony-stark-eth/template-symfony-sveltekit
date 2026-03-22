@@ -82,6 +82,8 @@ WORKDIR /app
 COPY frontend/package.json frontend/bun.lock* ./
 RUN bun install --frozen-lockfile
 COPY frontend/ .
+ARG VITE_SENTRY_DSN=""
+ENV VITE_SENTRY_DSN=${VITE_SENTRY_DSN}
 RUN bun run build
 
 # ============================================================

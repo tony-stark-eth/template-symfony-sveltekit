@@ -51,6 +51,8 @@ jobs:
           file: docker/frankenphp/Dockerfile
           target: frankenphp_prod
           push: true
+          build-args: |
+            VITE_SENTRY_DSN=${{ secrets.VITE_SENTRY_DSN }}
           tags: |
             ghcr.io/${{ github.repository }}/app:latest
             ghcr.io/${{ github.repository }}/app:${{ github.sha }}
