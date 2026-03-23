@@ -34,6 +34,16 @@
     # In prod the SvelteKit build output lives at /app/frontend/build.
     handle {
         root * /app/frontend/build
+
+        # Service worker must never be cached by CDN/browser — a stale SW
+        # serves old assets indefinitely, even after deployment.
+        @serviceWorker path /service-worker.js
+        header @serviceWorker Cache-Control "no-cache, no-store, must-revalidate"
+
+        # index.html should also be revalidated (SPA entry point)
+        @html path /index.html /
+        header @html Cache-Control "no-cache"
+
         try_files {path} /index.html
         file_server
     }

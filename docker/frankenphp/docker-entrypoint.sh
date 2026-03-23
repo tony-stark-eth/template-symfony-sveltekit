@@ -39,6 +39,15 @@ if [ -f /app/bin/console ]; then
     # Uses --allow-no-migration so a template with zero migrations doesn't fail.
     echo "Running Doctrine migrations..."
     php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration 2>&1 || true
+
+    # ── Warm up cache ──────────────────────────────────────────────────
+    # FrankenPHP worker mode boots PHP once and keeps it resident.
+    # A stale route/DI cache from a previous build causes 405/500 errors.
+    # cache:warmup is idempotent — fast no-op if cache is already current.
+    if [ "${APP_ENV:-dev}" = "prod" ]; then
+        echo "Warming up Symfony cache..."
+        php bin/console cache:warmup --env=prod 2>&1 || true
+    fi
 fi
 
 exec docker-php-entrypoint "$@"
