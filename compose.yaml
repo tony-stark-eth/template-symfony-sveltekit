@@ -23,6 +23,8 @@ services:
       - DATABASE_URL=postgresql://app:!ChangeMe!@pgbouncer:5432/app?serverVersion=17&sslmode=disable&charset=utf8
       # Messenger transport uses Doctrine (requires async queue table to exist).
       - MESSENGER_TRANSPORT_DSN=doctrine://default?auto_setup=true
+      # Mailpit catches all outgoing email in dev (Web UI at http://localhost:8025).
+      - MAILER_DSN=smtp://mailpit:1025
       # Mercure hub URLs — internal (php → php) and public (browser → localhost).
       - MERCURE_URL=https://php/.well-known/mercure
       - MERCURE_PUBLIC_URL=https://localhost/.well-known/mercure
@@ -82,10 +84,20 @@ services:
       # PgBouncer in Transaction Mode does not support LISTEN/NOTIFY, which
       # Doctrine Messenger relies on to detect new messages in the queue.
       - DATABASE_URL=postgresql://app:!ChangeMe!@database:5432/app?serverVersion=17&sslmode=disable&charset=utf8
+      # Messenger worker sends emails — must reach Mailpit in dev.
+      - MAILER_DSN=smtp://mailpit:1025
     depends_on:
       database:
         condition: service_healthy
     restart: unless-stopped
+
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - "8025:8025"    # Web UI
+    environment:
+      TZ: UTC
 
   bun:
     # Vite dev server — only started in dev via --profile dev.

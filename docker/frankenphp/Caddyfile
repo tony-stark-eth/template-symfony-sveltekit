@@ -10,7 +10,11 @@
     log
 
     # API requests → Symfony / FrankenPHP
+    # root is required here because the external block has no site-level root
+    # (unlike :8080 which has root * /app/public). Without it, php_server
+    # can't find index.php and returns 404.
     handle /api/* {
+        root * /app/public
         php_server
     }
 

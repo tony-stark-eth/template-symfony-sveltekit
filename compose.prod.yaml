@@ -4,7 +4,7 @@
 #   docker compose -f compose.yaml -f compose.prod.yaml up -d
 #
 # Requires .env.local with: DATABASE_URL, APP_SECRET, MERCURE_JWT_SECRET,
-# JWT_PASSPHRASE, SENTRY_DSN, SERVER_NAME, POSTGRES_PASSWORD, etc.
+# JWT_PASSPHRASE, MAILER_DSN, SENTRY_DSN, SERVER_NAME, POSTGRES_PASSWORD, etc.
 
 services:
   php:
@@ -22,10 +22,14 @@ services:
       - MERCURE_URL=https://php/.well-known/mercure
       - MERCURE_PUBLIC_URL=/.well-known/mercure
     restart: unless-stopped
-    # Override dev bind mounts, use only Caddy TLS/config volumes
+    # Override dev bind mounts. Mount Caddy TLS/config volumes, JWT keys
+    # (the prod image only contains .gitkeep), and Caddyfile (so config
+    # changes take effect without rebuilding the image).
     volumes: !override
       - caddy_data:/data
       - caddy_config:/config
+      - ./backend/config/jwt:/app/config/jwt:ro
+      - ./docker/frankenphp/Caddyfile:/etc/caddy/Caddyfile:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/api/v1/health"]
       interval: 10s
@@ -69,7 +73,15 @@ services:
       - APP_DEBUG=0
       # Messenger worker connects directly to Postgres (LISTEN/NOTIFY)
       - DATABASE_URL=postgresql://app:${POSTGRES_PASSWORD:-!ChangeMe!}@database:5432/app?serverVersion=17&sslmode=disable&charset=utf8
+    # Worker doesn't serve HTTP — disable inherited health check
+    healthcheck:
+      disable: true
     restart: unless-stopped
+
+  # Mailpit is dev-only — prod uses an external SMTP provider via MAILER_DSN in .env.local
+  mailpit:
+    deploy:
+      replicas: 0
 
 volumes:
   caddy_data:

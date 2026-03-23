@@ -16,6 +16,7 @@ Production-ready quality tooling from commit zero.
 | **Backend** | PHP 8.4, Symfony 8, Doctrine ORM, FrankenPHP (Worker Mode) |
 | **Frontend** | SvelteKit 2, Svelte 5, Bun, TypeScript strict, Tailwind 4 |
 | **Database** | PostgreSQL 17, PgBouncer (Transaction Mode) |
+| **Email** | Mailpit (dev catch-all at :8025), Resend-ready for prod |
 | **Quality** | 10 PHPStan extensions, Rector, ECS, PHPUnit 13, Infection |
 | **CI/CD** | GitHub Actions (backend + frontend + E2E + deploy), Dependabot auto-merge |
 | **AI** | Claude Code integration via `CLAUDE.md` + `.claude/` guidelines |
