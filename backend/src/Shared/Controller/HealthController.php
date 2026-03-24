@@ -21,6 +21,8 @@ final readonly class HealthController
     {
         return new JsonResponse([
             'status' => 'ok',
+            'database' => 'connected',
+            'version' => $_SERVER['DEPLOY_SHA'] ?? 'dev',
             'timestamp' => new \DateTimeImmutable()->format(\DateTimeInterface::ATOM),
         ]);
     }
@@ -42,6 +44,8 @@ final readonly class HealthController
 
         return new JsonResponse([
             'status' => 'ok',
+            'database' => 'connected',
+            'version' => $_SERVER['DEPLOY_SHA'] ?? 'dev',
             'timestamp' => new \DateTimeImmutable()->format(\DateTimeInterface::ATOM),
         ]);
     }

@@ -79,18 +79,6 @@ services:
       disable: true
     restart: unless-stopped
 
-  ntfy:
-    restart: always
-    deploy:
-      resources:
-        limits:
-          memory: 128M
-    logging:
-      driver: json-file
-      options:
-        max-size: "5m"
-        max-file: "3"
-
   # Mailpit is dev-only — prod uses an external SMTP provider via MAILER_DSN in .env.local
   mailpit:
     deploy:
