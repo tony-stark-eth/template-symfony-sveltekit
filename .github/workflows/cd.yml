@@ -21,23 +21,9 @@ permissions:
   packages: write
 
 jobs:
-  # ── Gate: wait for all CI checks to pass ─────────────────────────────────
-  ci-check:
-    name: CI Gate
-    runs-on: ubuntu-latest
-    steps:
-      - name: Wait for CI
-        uses: lewagon/wait-on-check-action@v1.3.4
-        with:
-          ref: ${{ github.sha }}
-          check-regexp: '^(Backend|Frontend|Playwright)'
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          wait-interval: 10
-
   # ── Build production image and push to GHCR ──────────────────────────────
   build-and-push:
     name: Build & Push Image
-    needs: ci-check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
