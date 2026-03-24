@@ -35,7 +35,7 @@ jobs:
       DATABASE_URL: postgresql://app:test@localhost:5432/app_test?serverVersion=17&sslmode=disable
       APP_ENV: test
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
