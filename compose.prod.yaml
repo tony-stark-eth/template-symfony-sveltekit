@@ -21,6 +21,7 @@ services:
       - DATABASE_URL=postgresql://app:${POSTGRES_PASSWORD:-!ChangeMe!}@pgbouncer:5432/app?serverVersion=17&sslmode=disable&charset=utf8
       - MERCURE_URL=https://php/.well-known/mercure
       - MERCURE_PUBLIC_URL=/.well-known/mercure
+      - DEPLOY_SHA=${DEPLOY_SHA:-dev}
     restart: unless-stopped
     # Override dev bind mounts. Mount Caddy TLS/config volumes, JWT keys
     # (the prod image only contains .gitkeep), and Caddyfile (so config
@@ -77,6 +78,18 @@ services:
     healthcheck:
       disable: true
     restart: unless-stopped
+
+  ntfy:
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
 
   # Mailpit is dev-only — prod uses an external SMTP provider via MAILER_DSN in .env.local
   mailpit:

@@ -27,7 +27,7 @@ jobs:
     runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v6
         with:
@@ -57,7 +57,7 @@ jobs:
     runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v6
         with:
@@ -89,7 +89,7 @@ jobs:
     runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v6
         with:
@@ -120,7 +120,7 @@ jobs:
     runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v6
         with:
@@ -142,6 +142,9 @@ jobs:
             -e COMPOSER_CACHE_DIR=/tmp/composer-cache \
             -v "$HOME/.composer/cache:/tmp/composer-cache" \
             php install --no-interaction --prefer-dist --no-scripts
+      - name: Generate JWT keypair
+        run: docker compose run --rm --no-deps --entrypoint "" php php bin/console lexik:jwt:generate-keypair --skip-if-exists
+
       - name: Start services (database + pgbouncer + php)
         run: docker compose up -d --no-build database pgbouncer php
       - name: Wait for PostgreSQL
@@ -169,7 +172,8 @@ jobs:
             php vendor/bin/phpunit \
               --coverage-clover=var/coverage/clover.xml \
               --coverage-xml=var/coverage/coverage-xml \
-              --log-junit=var/coverage/junit.xml
+              --log-junit=var/coverage/junit.xml \
+              -d memory_limit=512M
 
       - name: Infection (mutation testing)
         run: |
@@ -178,8 +182,7 @@ jobs:
             -e APP_ENV=test \
             -e XDEBUG_MODE=coverage \
             php vendor/bin/infection \
-              --threads=4 --coverage=var/coverage \
-              --skip-initial-tests --min-msi=80 --min-covered-msi=90 \
+              --threads=4 \
               --ignore-msi-with-no-mutations 2>&1)
           EC=$?
           echo "$OUTPUT"

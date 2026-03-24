@@ -29,6 +29,11 @@
         }
     }
 
+    handle /ntfy/* {
+        uri strip_prefix /ntfy
+        reverse_proxy ntfy:80
+    }
+
     # Everything else → SvelteKit static build with SPA fallback
     # In dev this block is unused (requests go to the Vite dev server instead).
     # In prod the SvelteKit build output lives at /app/frontend/build.
