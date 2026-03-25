@@ -11,6 +11,7 @@ packages:
   - gnupg
   - lsb-release
   - unattended-upgrades
+  - fail2ban
 
 # ── Docker installieren ───────────────────────────────────────────────────────
 runcmd:
@@ -51,11 +52,51 @@ runcmd:
       cd /opt/app && docker compose -f compose.glitchtip.yaml up -d
     fi
 
+  # Create Caddy log directory for fail2ban (UID 1001 = FrankenPHP non-root user)
+  - mkdir -p /var/log/caddy && chown 1001:1001 /var/log/caddy
+
+  # Enable and start fail2ban
+  - systemctl enable fail2ban
+  - systemctl start fail2ban
+
   # unattended-upgrades konfigurieren
   - dpkg-reconfigure -plow unattended-upgrades
 
-# ── unattended-upgrades ───────────────────────────────────────────────────────
+# ── fail2ban + unattended-upgrades ────────────────────────────────────────────
 write_files:
+  # ── fail2ban: SSH brute-force jail ──────────────────────────────────────────
+  - path: /etc/fail2ban/jail.d/sshd.conf
+    content: |
+      [sshd]
+      enabled  = true
+      port     = ssh
+      filter   = sshd
+      logpath  = /var/log/auth.log
+      maxretry = 5
+      bantime  = 3600
+      findtime = 600
+
+  # ── fail2ban: Caddy 404/405 scanner jail ────────────────────────────────────
+  - path: /etc/fail2ban/jail.d/caddy-scanner.conf
+    content: |
+      [caddy-scanner]
+      enabled  = true
+      port     = http,https
+      filter   = caddy-scanner
+      logpath  = /var/log/caddy/access.log
+      maxretry = 10
+      bantime  = 86400
+      findtime = 600
+
+  # ── fail2ban: filter for Caddy JSON access logs ────────────────────────────
+  - path: /etc/fail2ban/filter.d/caddy-scanner.conf
+    content: |
+      [Definition]
+      # Caddy JSON log: {"request":{"client_ip":"1.2.3.4",...},"status":404,...}
+      # client_ip resolves the real visitor via trusted_proxies (Cloudflare)
+      failregex = ^\{.*"client_ip":\s*"<HOST>".*"status":\s*(?:404|405)\s*[,}]
+      ignoreregex =
+
   - path: /etc/apt/apt.conf.d/50unattended-upgrades
     content: |
       Unattended-Upgrade::Allowed-Origins {

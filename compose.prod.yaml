@@ -31,6 +31,7 @@ services:
       - caddy_config:/config
       - ./backend/config/jwt:/app/config/jwt:ro
       - ./docker/frankenphp/Caddyfile:/etc/caddy/Caddyfile:ro
+      - /var/log/caddy:/var/log/caddy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/api/v1/health"]
       interval: 10s
