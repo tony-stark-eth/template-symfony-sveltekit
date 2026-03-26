@@ -44,7 +44,7 @@ jobs:
           target: frankenphp_prod
           push: true
           build-args: |
-            VITE_SENTRY_DSN=${{ secrets.VITE_SENTRY_DSN }}
+            VITE_O2_ENDPOINT=${{ secrets.VITE_O2_ENDPOINT }}
           tags: |
             ghcr.io/${{ github.repository }}/app:latest
             ghcr.io/${{ github.repository }}/app:${{ github.sha }}

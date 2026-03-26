@@ -58,12 +58,12 @@ return static function (ContainerConfigurator $container): void {
                 ],
                 'grouped' => [
                     'type' => 'group',
-                    'members' => ['sentry', 'stderr'],
+                    'members' => ['otel', 'stderr'],
                 ],
-                'sentry' => [
-                    'type' => 'sentry',
+                'otel' => [
+                    'type' => 'service',
+                    'id' => 'App\Shared\Monolog\OtelHandler',
                     'level' => 'error',
-                    'hub_id' => 'Sentry\State\HubInterface',
                 ],
                 'stderr' => [
                     'type' => 'stream',

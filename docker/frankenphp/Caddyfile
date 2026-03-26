@@ -54,6 +54,12 @@
         }
     }
 
+    # OpenObserve — browser SDK telemetry ingestion (same-origin, no CORS)
+    handle /o2/* {
+        uri strip_prefix /o2
+        reverse_proxy openobserve:5080
+    }
+
     # Everything else → SvelteKit static build with SPA fallback
     # In dev this block is unused (requests go to the Vite dev server instead).
     # In prod the SvelteKit build output lives at /app/frontend/build.

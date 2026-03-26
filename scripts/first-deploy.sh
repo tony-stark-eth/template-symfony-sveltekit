@@ -135,7 +135,7 @@ APP_SECRET=$(openssl rand -hex 32)
 POSTGRES_PASSWORD=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 32)
 MERCURE_SECRET=$(openssl rand -hex 32)
 JWT_PASSPHRASE=$(openssl rand -hex 16)
-GLITCHTIP_SECRET=$(openssl rand -hex 32)
+O2_ROOT_PASSWORD=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24)
 
 # ── Step 5: Clone and configure ──────────────────────────────────────────────
 echo ""
@@ -145,9 +145,9 @@ ssh "root@${SERVER_IP}" "git clone https://github.com/${GITHUB_REPO}.git ${DEPLO
 # Create .env for compose variable interpolation (POSTGRES_PASSWORD)
 ssh "root@${SERVER_IP}" "cat > ${DEPLOY_DIR}/.env << 'EOF'
 POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-GLITCHTIP_SECRET_KEY=${GLITCHTIP_SECRET}
-GLITCHTIP_DOMAIN=http://${SERVER_IP}:8000
-GLITCHTIP_FROM_EMAIL=noreply@${DOMAIN}
+O2_ROOT_EMAIL=admin@${DOMAIN}
+O2_ROOT_PASSWORD=${O2_ROOT_PASSWORD}
+O2_AUTH_TOKEN=$(echo -n "admin@${DOMAIN}:${O2_ROOT_PASSWORD}" | base64)
 EOF"
 
 # Create .env.local for Symfony
@@ -163,7 +163,6 @@ MERCURE_JWT_SECRET=${MERCURE_SECRET}
 JWT_PASSPHRASE=${JWT_PASSPHRASE}
 JWT_TOKEN_TTL=3600
 MAILER_DSN=smtp://resend:re_YOUR_API_KEY@smtp.resend.com:465
-SENTRY_DSN=
 SERVER_NAME=${DOMAIN}
 POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
 VAPID_PUBLIC_KEY=
@@ -210,74 +209,23 @@ for i in $(seq 1 12); do
     echo "  waiting... ($i/12)"
 done
 
-# ── Step 8: Deploy GlitchTip ────────────────────────────────────────────────
+# ── Step 8: OpenObserve (observability) ────────────────────────────────────
 echo ""
-echo "=== Step 8: GlitchTip ==="
-ssh "root@${SERVER_IP}" "cd ${DEPLOY_DIR} && docker compose -f compose.glitchtip.yaml up -d"
-echo "Waiting for GlitchTip to start..."
-sleep 10
+echo "=== Step 8: OpenObserve ==="
+echo "OpenObserve starts automatically with the app stack (compose.prod.yaml)."
+echo "  Admin:    admin@${DOMAIN}"
+echo "  Password: ${O2_ROOT_PASSWORD}"
+echo "  UI:       http://${SERVER_IP}:5080"
+echo "  Frontend: https://${DOMAIN}/o2/ (browser SDK telemetry)"
 
-# Run migrations
-ssh "root@${SERVER_IP}" "cd ${DEPLOY_DIR} && docker compose -f compose.glitchtip.yaml exec -T glitchtip ./manage.py migrate --no-input"
-
-# Create superuser
-ADMIN_EMAIL="admin@${DOMAIN}"
-ADMIN_PASSWORD="$(openssl rand -base64 16 | tr -dc 'a-zA-Z0-9' | head -c 20)"
-ssh "root@${SERVER_IP}" "cd ${DEPLOY_DIR} && docker compose -f compose.glitchtip.yaml exec -T glitchtip ./manage.py createsuperuser --noinput --email ${ADMIN_EMAIL}"
-ssh "root@${SERVER_IP}" "cd ${DEPLOY_DIR} && docker compose -f compose.glitchtip.yaml exec -T glitchtip ./manage.py shell -c \"
-from apps.users.models import User
-user = User.objects.get(email='${ADMIN_EMAIL}')
-user.set_password('${ADMIN_PASSWORD}')
-user.save()
-\""
-
-# Create org + team + projects + get DSNs
-echo "Creating GlitchTip organization and projects..."
-SENTRY_DSN=$(ssh "root@${SERVER_IP}" "cd ${DEPLOY_DIR} && docker compose -f compose.glitchtip.yaml exec -T glitchtip ./manage.py shell -c \"
-from apps.organizations_ext.models import Organization, OrganizationUser
-from apps.projects.models import Project, ProjectKey
-from apps.teams.models import Team
-from apps.users.models import User
-
-user = User.objects.get(email='${ADMIN_EMAIL}')
-org = Organization.objects.create(name='${PROJECT_NAME}', slug='${PROJECT_NAME}')
-ou = OrganizationUser.objects.create(organization=org, user=user, role=0)
-team = Team.objects.create(slug='default', organization=org)
-team.members.add(ou)
-
-project = Project.objects.create(name='API', slug='api', organization=org, platform='php-symfony')
-project.teams.add(team)
-key = ProjectKey.objects.filter(project=project).first() or ProjectKey.objects.create(project=project)
-print(key.get_dsn())
-\"" 2>/dev/null | tail -1)
-
-FRONTEND_DSN=$(ssh "root@${SERVER_IP}" "cd ${DEPLOY_DIR} && docker compose -f compose.glitchtip.yaml exec -T glitchtip ./manage.py shell -c \"
-from apps.organizations_ext.models import Organization
-from apps.projects.models import Project, ProjectKey
-from apps.teams.models import Team
-
-org = Organization.objects.get(slug='${PROJECT_NAME}')
-team = Team.objects.get(organization=org)
-project = Project.objects.create(name='Frontend', slug='frontend', organization=org, platform='javascript-svelte')
-project.teams.add(team)
-key = ProjectKey.objects.filter(project=project).first() or ProjectKey.objects.create(project=project)
-print(key.get_dsn())
-\"" 2>/dev/null | tail -1)
-
-echo "Backend DSN:  $SENTRY_DSN"
-echo "Frontend DSN: $FRONTEND_DSN"
-
-# ── Step 9: Wire SENTRY_DSN + rebuild with frontend DSN ─────────────────────
+# Rebuild image with frontend OpenObserve endpoint baked into the JS bundle
+O2_ENDPOINT="https://${DOMAIN}/o2"
 echo ""
-echo "=== Step 9: Configure error tracking ==="
-ssh "root@${SERVER_IP}" "sed -i 's|^SENTRY_DSN=.*|SENTRY_DSN=${SENTRY_DSN}|' ${DEPLOY_DIR}/.env.local"
+echo "=== Step 9: Rebuild with frontend telemetry endpoint ==="
+ssh "root@${SERVER_IP}" "cd ${DEPLOY_DIR} && docker compose -f compose.yaml -f compose.prod.yaml build --no-cache --build-arg 'VITE_O2_ENDPOINT=${O2_ENDPOINT}' php"
+ssh "root@${SERVER_IP}" "cd ${DEPLOY_DIR} && docker compose -f compose.yaml -f compose.prod.yaml up -d --force-recreate"
 
-# Rebuild image with frontend Sentry DSN baked into the JS bundle
-echo "Rebuilding with frontend Sentry DSN..."
-ssh "root@${SERVER_IP}" "cd ${DEPLOY_DIR} && docker compose -f compose.yaml -f compose.prod.yaml build --no-cache --build-arg 'VITE_SENTRY_DSN=${FRONTEND_DSN}' php"
-ssh "root@${SERVER_IP}" "cd ${DEPLOY_DIR} && docker compose -f compose.yaml -f compose.prod.yaml up -d --force-recreate php messenger-worker"
-
-# Fix Caddy permissions again after recreate
+# Fix Caddy permissions after recreate
 sleep 10
 ssh "root@${SERVER_IP}" "docker exec -u root ${PROJECT_NAME}-php-1 sh -c 'mkdir -p /data/caddy /config/caddy && chown -R 1001:1001 /data /config' 2>/dev/null || true"
 ssh "root@${SERVER_IP}" "cd ${DEPLOY_DIR} && docker compose -f compose.yaml -f compose.prod.yaml restart php"
@@ -288,7 +236,7 @@ for i in $(seq 1 12); do
     sleep 10
     if ssh "root@${SERVER_IP}" "docker exec ${PROJECT_NAME}-php-1 curl -sf http://localhost:8080/api/v1/health" 2>/dev/null; then
         echo ""
-        echo "App is healthy with error tracking!"
+        echo "App is healthy with observability!"
         break
     fi
     echo "  waiting... ($i/12)"
@@ -300,7 +248,7 @@ echo "=== Step 10: GitHub Actions secrets ==="
 gh secret set DEPLOY_HOST --body "$SERVER_IP" --repo "$GITHUB_REPO"
 gh secret set DEPLOY_USER --body "root" --repo "$GITHUB_REPO"
 gh secret set DEPLOY_SSH_KEY < "$SSH_KEY_FILE" --repo "$GITHUB_REPO"
-gh secret set VITE_SENTRY_DSN --body "$FRONTEND_DSN" --repo "$GITHUB_REPO"
+gh secret set VITE_O2_ENDPOINT --body "https://${DOMAIN}/o2" --repo "$GITHUB_REPO"
 
 # Create production environment
 gh api "repos/${GITHUB_REPO}/environments/production" -X PUT >/dev/null 2>&1
