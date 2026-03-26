@@ -4,7 +4,7 @@
 #   docker compose -f compose.yaml -f compose.prod.yaml up -d
 #
 # Requires .env.local with: DATABASE_URL, APP_SECRET, MERCURE_JWT_SECRET,
-# JWT_PASSPHRASE, MAILER_DSN, SENTRY_DSN, SERVER_NAME, POSTGRES_PASSWORD, etc.
+# JWT_PASSPHRASE, MAILER_DSN, SERVER_NAME, POSTGRES_PASSWORD, etc.
 
 services:
   php:
@@ -22,6 +22,15 @@ services:
       - MERCURE_URL=https://php/.well-known/mercure
       - MERCURE_PUBLIC_URL=/.well-known/mercure
       - DEPLOY_SHA=${DEPLOY_SHA:-dev}
+      # OpenTelemetry — MUST be in compose environment (not .env), see pitfall P1
+      - OTEL_PHP_AUTOLOAD_ENABLED=true
+      - OTEL_SERVICE_NAME=${PROJECT_NAME:-app}-api
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://openobserve:5080/api/default
+      - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+      - OTEL_PROPAGATORS=tracecontext,baggage
+      - OTEL_TRACES_SAMPLER=always_on
+      - OTEL_LOGS_EXPORTER=otlp
+      - OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic ${O2_AUTH_TOKEN:-}
     restart: unless-stopped
     # Override dev bind mounts. Mount Caddy TLS/config volumes, JWT keys
     # (the prod image only contains .gitkeep), and Caddyfile (so config
@@ -84,6 +93,42 @@ services:
   mailpit:
     deploy:
       replicas: 0
+
+  # OpenObserve — unified observability (logs, traces, metrics)
+  # UI accessible at http://<server-ip>:5080 (built-in auth)
+  # Browser SDK telemetry routed through Caddy at /o2/*
+  openobserve:
+    image: public.ecr.aws/zinclabs/openobserve:latest
+    environment:
+      ZO_ROOT_USER_EMAIL: ${O2_ROOT_EMAIL:-admin@example.com}
+      ZO_ROOT_USER_PASSWORD: ${O2_ROOT_PASSWORD:-}
+      ZO_DATA_DIR: /data
+      # Memory tuning for small VPS (4 GB shared with app)
+      ZO_MEM_TABLE_MAX_SIZE: "64"
+      ZO_MEMORY_CACHE_MAX_SIZE: "128"
+      ZO_MEMORY_CACHE_DATAFUSION_MAX_SIZE: "128"
+      ZO_COMPACT_DATA_RETENTION_DAYS: "90"
+      # SMTP for alerting
+      ZO_SMTP_ENABLED: ${ZO_SMTP_ENABLED:-false}
+      ZO_SMTP_HOST: ${ZO_SMTP_HOST:-}
+      ZO_SMTP_PORT: ${ZO_SMTP_PORT:-465}
+      ZO_SMTP_USER_NAME: ${ZO_SMTP_USER_NAME:-}
+      ZO_SMTP_PASSWORD: ${ZO_SMTP_PASSWORD:-}
+      ZO_SMTP_FROM_EMAIL: ${ZO_SMTP_FROM_EMAIL:-}
+    ports:
+      - "5080:5080"
+    volumes:
+      - /mnt/data/openobserve:/data
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   caddy_data:

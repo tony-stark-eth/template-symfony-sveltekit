@@ -37,11 +37,11 @@ resource "hcloud_firewall" "app" {
     source_ips = ["0.0.0.0/0", "::/0"]
   }
 
-  # GlitchTip (error tracking UI)
+  # OpenObserve (observability UI — built-in auth)
   rule {
     direction  = "in"
     protocol   = "tcp"
-    port       = "8000"
+    port       = "5080"
     source_ips = ["0.0.0.0/0", "::/0"]
   }
 }

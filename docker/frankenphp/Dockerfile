@@ -21,7 +21,8 @@ RUN install-php-extensions \
     intl \
     zip \
     opcache \
-    apcu
+    apcu \
+    opentelemetry
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
@@ -82,8 +83,10 @@ WORKDIR /app
 COPY frontend/package.json frontend/bun.lock* ./
 RUN bun install --frozen-lockfile
 COPY frontend/ .
-ARG VITE_SENTRY_DSN=""
-RUN echo "VITE_SENTRY_DSN=${VITE_SENTRY_DSN}" > .env.production
+ARG VITE_O2_ENDPOINT=""
+ARG VITE_O2_ORG="default"
+RUN echo "VITE_O2_ENDPOINT=${VITE_O2_ENDPOINT}" > .env.production && \
+    echo "VITE_O2_ORG=${VITE_O2_ORG}" >> .env.production
 RUN bun run build
 
 # ============================================================
@@ -101,7 +104,8 @@ RUN install-php-extensions \
     intl \
     zip \
     opcache \
-    apcu
+    apcu \
+    opentelemetry
 
 # Install Composer (needed to install dependencies)
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer

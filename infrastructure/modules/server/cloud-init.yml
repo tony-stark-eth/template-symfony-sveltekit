@@ -44,13 +44,7 @@ runcmd:
     fi
 
   # Datenverzeichnisse anlegen
-  - mkdir -p /mnt/data/postgres /mnt/data/backups
-
-  # Start GlitchTip (error tracking) if compose file exists
-  - |
-    if [ -f /opt/app/compose.glitchtip.yaml ]; then
-      cd /opt/app && docker compose -f compose.glitchtip.yaml up -d
-    fi
+  - mkdir -p /mnt/data/postgres /mnt/data/backups /mnt/data/openobserve
 
   # Create Caddy log directory for fail2ban (UID 1001 = FrankenPHP non-root user)
   - mkdir -p /var/log/caddy && chown 1001:1001 /var/log/caddy
