@@ -22,7 +22,7 @@ final class OtelHandler extends AbstractProcessingHandler
     {
         $logger = Globals::loggerProvider()->getLogger('monolog');
 
-        $otelRecord = (new OtelLogRecord($record->message))
+        $otelRecord = new OtelLogRecord($record->message)
             ->setSeverityNumber(Severity::fromPsr3($record->level->toPsrLogLevel()))
             ->setSeverityText($record->level->name)
             ->setAttributes([
