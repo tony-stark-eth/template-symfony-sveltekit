@@ -1,0 +1,8 @@
+scanner:
+  skip_path:
+    - backend/vendor
+    - frontend/node_modules
+    - frontend/.svelte-kit
+    - frontend/build
+    - backend/var
+    - infrastructure/.terraform

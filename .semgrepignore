@@ -1,0 +1,13 @@
+# Dependencies
+backend/vendor/
+frontend/node_modules/
+
+# Build artifacts
+frontend/.svelte-kit/
+frontend/build/
+backend/var/
+
+# Infrastructure state
+infrastructure/.terraform/
+*.tfstate
+*.tfstate.backup
